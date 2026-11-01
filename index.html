@@ -77,6 +77,9 @@ svg#map{width:100%;height:100%;display:block;user-select:none}
   background:var(--paper);border:3px solid var(--ink);border-radius:12px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;max-height:46vh;box-shadow:0 8px 24px rgba(0,0,0,.35);
   padding:10px 12px 12px}
 #panel:empty{display:none}
+/* nabídka koupě: vyšší okno, aby byla vidět karta i tlačítka Koupit / Nekupovat */
+#panel.buy{max-height:calc(100% - 90px)}
+@media (max-width:560px){#panel.buy .cardpic img,#panel.buy .cardpic .tfallback{width:min(44%,170px)}#panel.buy .kv{font-size:15px}}
 .ptoggle{display:grid;position:absolute;top:6px;right:6px;width:34px;height:34px;border:0;border-radius:8px;background:var(--paper-2);color:var(--ink);place-items:center;font-size:20px;font-weight:700;line-height:1}
 #panel .ph{padding-right:40px}
 #panel.mini{left:auto;max-width:calc(100% - 20px);padding-block:6px}
@@ -280,9 +283,6 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
       <div id="lastroll" hidden aria-live="polite"></div>
       <div id="steps" hidden></div>
       <div class="mapctl">
-        <button id="zin" aria-label="Přiblížit">+</button>
-        <button id="zout" aria-label="Oddálit">−</button>
-        <button id="zfit" aria-label="Celá mapa" title="Celá mapa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
         <button id="zme" aria-label="Ukázat figurku hráče na tahu" title="Hráč na tahu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
       </div>
   </div>
@@ -1165,7 +1165,7 @@ function follow(i){const t=T[i];if(vb.w>1500)return;const mx=vb.w*.18,my=vb.h*.1
   const up=e=>{pts.delete(e.pointerId);if(!pts.size)start=null;};
   svg.addEventListener("pointerup",up);svg.addEventListener("pointercancel",up);
   svg.addEventListener("click",e=>{if(dragged)return;const tg=e.target.closest&&e.target.closest("[data-i]");if(tg&&g)showTile(+tg.getAttribute("data-i"));});
-  $("zin").onclick=()=>zoom(1/1.4);$("zout").onclick=()=>zoom(1.4);$("zfit").onclick=fitMap;
+
   $("zme").onclick=()=>{if(!g)return;const p=cur();if(p.pos>=0)focus([p.pos],700);};
 })();
 
@@ -1207,6 +1207,7 @@ const DN={1:"1 kostka",2:"2 kostky",3:"3 kostky"};
 function renderPanel(){
   const P=$("panel");P.innerHTML="";$("steps").hidden=true;if(!g)return;
   const p=cur();
+  P.classList.toggle("buy",g.phase==="buy"&&isMine(p.i));
   if(g.phase==="over"){const w=g.players[g.winner];
     P.append(h("div",{class:"winner"},h("span",{html:pawnSVG(w.color,72,true)}),h("h2",null,`${w.name} vyhrává!`),
       g.winWhy?h("div",{class:"sub"},w.name+" "+g.winWhy+"."):null,
@@ -1543,7 +1544,7 @@ function showSetup(){
     card.append(h("p",{class:"note"},victory==="last"?"Hra končí, jakmile zůstane jediný hráč – ostatní zbankrotují nebo je vyřadí Mafia.":"Hra končí dosažením cíle, nebo dříve, pokud zůstane jediný hráč."));
     card.append(h("button",{class:"btn red big",onclick:()=>{
       const ps=[...setupPlayers].sort((a,b)=>ORDER.indexOf(a.color)-ORDER.indexOf(b.color)).map((p,k)=>({name:(p.name||"").trim()||"Hráč "+(k+1),color:p.color,ai:p.ai,level:p.ai?aiLevel:0}));
-      clearSave();startGame(E.newGame(ps,{cash:setCash,targetCash:victory==="cash"?targetCash:0,targetTiles:victory==="tiles"?targetTiles:0}));}},ONLINE_OK?"Začít hru na tomto zařízení":"Začít hru"));
+      clearSave();startGame(E.newGame(ps,{cash:setCash,targetCash:victory==="cash"?targetCash:0,targetTiles:victory==="tiles"?targetTiles:0}));}},ONLINE_OK?"Založit offline hru":"Začít hru"));
     if(ONLINE_OK){
       card.append(h("div",{class:"sec"},"Online hra – každý na svém zařízení"));
       const os=onlineSaved();
