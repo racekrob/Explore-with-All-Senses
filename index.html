@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="Italia – Explore with all senses. Desková hra pro 2–6 hráčů: pochutiny, vína a pamětihodnosti Itálie.">
 <meta name="theme-color" content="#14203b">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -427,7 +429,7 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
   const COLORS = [
     { id: 'blue', name: 'Modrá', hex: '#1f6fd1' }, { id: 'red', name: 'Červená', hex: '#d62828' },
     { id: 'green', name: 'Zelená', hex: '#2a9d3c' }, { id: 'yellow', name: 'Žlutá', hex: '#f2c418' },
-    { id: 'black', name: 'Černá', hex: '#1d1d1f' }, { id: 'purple', name: 'Fialová', hex: '#7b3fb8' }];
+    { id: 'grey', name: 'Šedá', hex: '#8e959c' }, { id: 'purple', name: 'Fialová', hex: '#a66ad8' }];
   const CARDS = {
     lodni: { name: 'Lodní linky', price: 50000, desc: 'Plavba trvá 1 krok místo 5. V cizím přístavu nemusíte na ostrov.' },
     aero: { name: 'Aerolinky', price: 50000, desc: 'Let trvá 1 krok místo 5. Na cizím letišti nemusíte na ostrov.' },
@@ -439,7 +441,7 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
     lklub: { name: 'Labužnický klub', price: 50000, club: 'G', desc: 'Umístíte na svou pochutinu. V bance Milano dostanete navíc 15 000 €. Kdo na políčku klubu zastaví, tomu vyplatíte 1 000 € za každou jeho pochutinu.' },
     sklub: { name: 'Someliérský klub', price: 50000, club: 'R', desc: 'Umístíte na své víno. V bance Ancona dostanete navíc 15 000 €. Kdo na políčku klubu zastaví, tomu vyplatíte 1 000 € za každé jeho víno.' },
     cklub: { name: 'Cestovatelský klub', price: 50000, club: 'W', desc: 'Umístíte na svou pamětihodnost. V bance Roma dostanete navíc 15 000 €. Kdo na políčku klubu zastaví, tomu vyplatíte 1 000 € za každou jeho pamětihodnost.' },
-    mafia: { name: 'Mafia', price: 300000, rent: true, desc: 'Zápůjčka jen na Sicílii, na jednu jízdu do další banky. Koho na trase potkáte, vypadá ze hry.' },
+    mafia: { name: 'Mafia', price: 300000, rent: true, desc: 'Zapůjčíte si ji v kterékoli bance na začátku tahu a vrací se, až se vrátíte do téže banky. Koho na trase potkáte (i v protisměru), vypadá ze hry.' },
   };
   const KIND_CARD = { W: 'pruvodce', R: 'somelier', G: 'labuznik' };
   const DICE_FEE = { 1: 5000, 2: 0, 3: 10000 };
@@ -619,7 +621,7 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
       if (r.base) pay(g, -1, p.i, r.base, `výplata v bance ${t.n}` + (r.mult ? ' (vč. násobků)' : ''));
       r.clubs.forEach(c => pay(g, -1, p.i, CLUB_BONUS, CARDS[c].name));
       if (!r.sum) log(g, `${p.name} je v bance ${t.n}, zatím bez výplaty.`);
-      if (p.mafia) { p.mafia = false; delete g.cards.mafia; log(g, `Mafia hráče ${p.name} se vrací.`); }
+      if (p.mafia && p.mafiaBank === i) { p.mafia = false; p.mafiaBank = null; delete g.cards.mafia; log(g, `${p.name} se vrátil do banky ${t.n} – Mafia se vrací.`); }
     } else if ((t.t === 'ship' || t.t === 'plane') && !p.train) {
       const c = t.t === 'ship' ? 'lodni' : 'aero', o = g.cards[c];
       if (o != null && o !== p.i && P(g, o).alive) pay(g, p.i, o, LINK_STOP, `zastavení na lince (${CARDS[c].name})`);
@@ -742,7 +744,7 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
       const def = CARDS[c];
       if (g.cards[c] != null) return;
       if (c === 'mafia') {
-        if (T[p.pos].loop !== 'sic' || g.phase !== 'turn' || p.mafia) return;
+        if (T[p.pos].t !== 'B' || g.phase !== 'turn' || p.mafia) return;
       }
       res.push({ c, name: def.name, price: def.price, can: p.cash >= def.price });
     });
@@ -752,10 +754,10 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
     const p = P(g, i), def = CARDS[c];
     if (g.cards[c] != null || p.cash < def.price) return false;
     if (def.club && (tile == null || g.own[tile] !== i || T[tile].t !== def.club)) return false;
-    if (c === 'mafia' && (T[p.pos].loop !== 'sic' || g.phase !== 'turn')) return false;
+    if (c === 'mafia' && (T[p.pos].t !== 'B' || g.phase !== 'turn')) return false;
     p.cash -= def.price; g.cards[c] = i;
     g.anim.push({ pay: true, from: i, to: -1, amt: def.price, why: def.name });
-    if (c === 'mafia') { p.mafia = true; log(g, `${p.name} si najímá Mafii za ${fmt(def.price)}! Platí do příští banky.`); }
+    if (c === 'mafia') { p.mafia = true; p.mafiaBank = p.pos; log(g, `${p.name} si v bance ${T[p.pos].n} najímá Mafii za ${fmt(def.price)}! Vrací se po návratu do téže banky.`); }
     else log(g, `${p.name} kupuje kartu ${def.name} za ${fmt(def.price)}.`);
     if (def.club) placeClub(g, i, c, tile);
     return true;
@@ -779,7 +781,7 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
   }
   function eliminate(g, i, why) {
     const p = P(g, i); if (!p.alive) return;
-    p.alive = false; p.mafia = false;
+    p.alive = false; p.mafia = false; p.mafiaBank = null;
     Object.keys(g.own).forEach(k => { if (g.own[k] === i) delete g.own[k]; });
     Object.keys(g.cards).forEach(c => { if (g.cards[c] === i) delete g.cards[c]; });
     fixClubs(g);
@@ -922,10 +924,19 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
     }
     let v = P(g, i).cash - before;
     if (!P(g, i).alive) return -1e9;
+    v += (g0.players.filter(q => q.alive).length - g.players.filter(q => q.alive).length) * 60000;   // Mafie vyřadila soupeře
     if (g.phase === 'buy' && g.cur === i) v += deep ? buyValue(g, i, g.offer) : 2500;
     const pos = P(g, i).pos;
     if (deep && T[pos] && T[pos].t === 'B') v += 500;
     return v;
+  }
+  // těžká úroveň: Mafii si najme, když nejbohatší soupeř je nablízku nebo ho výrazně předbíhá
+  function mafiaWorth(g, p) {
+    const opp = g.players.filter(q => q.alive && q.i !== p.i);
+    if (!opp.length) return false;
+    const leader = opp.reduce((a, b) => worth(g, a.i) > worth(g, b.i) ? a : b);
+    const near = opp.some(q => q.pos >= 0 && T[q.pos].loop === T[p.pos].loop && T[q.pos].t !== 'B');
+    return worth(g, leader.i) > worth(g, p.i) * 0.8 || near || Math.random() < 0.35;
   }
   function aiCards(g, p) {
     const L = lvl(p), own = k => kindCount(g, p.i, k);
@@ -939,7 +950,7 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
         else if (o.c === 'provincie' && regions >= 2 && spare > 15000) buyCard(g, p.i, o.c);
         else if (o.c === 'treni' && spare > 60000) buyCard(g, p.i, o.c);
         else if ((o.c === 'lodni' || o.c === 'aero') && spare > 80000) buyCard(g, p.i, o.c);
-        else if (o.c === 'mafia' && spare > 80000 && g.players.filter(q => q.alive).length > 2 && Math.random() < 0.3) buyCard(g, p.i, o.c);
+        else if (o.c === 'mafia' && spare >= 10000 && mafiaWorth(g, p)) buyCard(g, p.i, o.c);
       } else {
         const r = L === 1 ? 1.4 : 1;   // snadná kupuje později
         if (def.kind && own(def.kind) >= 6 && spare > 20000 * r) buyCard(g, p.i, o.c);
@@ -947,7 +958,7 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
         else if (o.c === 'provincie' && regions >= 2 && spare > 25000 * r) buyCard(g, p.i, o.c);
         else if (o.c === 'treni' && spare > 80000 * r) buyCard(g, p.i, o.c);
         else if ((o.c === 'lodni' || o.c === 'aero') && spare > 120000 * r) buyCard(g, p.i, o.c);
-        else if (o.c === 'mafia' && spare > 60000 && g.players.filter(q => q.alive).length > 2 && Math.random() < (L === 1 ? 0.6 : 0.4)) buyCard(g, p.i, o.c);
+        else if (o.c === 'mafia' && spare > (L === 1 ? 60000 : 30000) && Math.random() < (L === 1 ? 0.5 : 0.4)) buyCard(g, p.i, o.c);
       }
     }
     Object.keys(g.cards).forEach(c => { if (g.cards[c] === p.i && CARDS[c].club && !clubValid(g, c)) { const ts = clubTiles(g, p.i, c).sort((a, b) => T[b].price - T[a].price); if (ts.length) placeClub(g, p.i, c, ts[0]); } });
@@ -999,10 +1010,10 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
 <script>
 (function(){
 const E=window.ITALIA, D=E.D, T=E.T, NS="http://www.w3.org/2000/svg";
-const PCOL={blue:"#1f6fd1",red:"#d62828",green:"#2a9d3c",yellow:"#f2c418",black:"#1d1d1f",purple:"#7b3fb8"};
-const TRAILCOL={yellow:"#d4a800",black:"#3c3c40"};
-const CN={blue:"modrá",red:"červená",green:"zelená",yellow:"žlutá",black:"černá",purple:"fialová"};
-const ORDER=["blue","red","green","yellow","black","purple"];
+const PCOL={blue:"#1f6fd1",red:"#d62828",green:"#2a9d3c",yellow:"#f2c418",grey:"#8e959c",purple:"#a66ad8",black:"#8e959c"};
+const TRAILCOL={yellow:"#d4a800",grey:"#6b7178",black:"#6b7178"};
+const CN={blue:"modrá",red:"červená",green:"zelená",yellow:"žlutá",grey:"šedá",purple:"fialová",black:"šedá"};
+const ORDER=["blue","red","green","yellow","grey","purple"];
 const fmt=E.fmt, $=id=>document.getElementById(id);
 function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
 function h(tag,props,...kids){const e=document.createElement(tag);if(props)for(const k in props){const v=props[k];if(v==null||v===false)continue;if(k.startsWith("on"))e.addEventListener(k.slice(2),v);else if(k==="html")e.innerHTML=v;else e.setAttribute(k,v===true?"":v);}
@@ -1127,7 +1138,7 @@ function drawPawns(){
     const e=el("g",{class:"pawn",transform:`translate(${(t.x+Math.cos(a)*off).toFixed(1)},${(t.y-8+Math.sin(a)*off).toFixed(1)}) scale(1.45)`});
     el("ellipse",{cx:0,cy:14,rx:13,ry:5,fill:"rgba(0,0,0,.35)"},e);
     el("path",{d:PAWN_D,fill:pc(p),stroke:on?"#ffd66b":"#1d1d1f","stroke-width":on?4:2},e);
-    if(p.mafia)el("circle",{cx:0,cy:-12,r:5,fill:p.color==="black"?"#fff":"#1d1d1f"},e);
+    if(p.mafia)el("circle",{cx:0,cy:-12,r:5,fill:"#1d1d1f"},e);
     order.push([on,e]);});});
   order.sort((a,b)=>a[0]-b[0]).forEach(([,e])=>gt.appendChild(e));
 }
@@ -1348,7 +1359,7 @@ function openCards(){
         else acts.appendChild(h("button",{disabled:p.cash<def.price,onclick:()=>{E.buyCard(g,p.i,c);close();play();}},`Koupit · ${fmt(def.price)}`));}
       if(owner===p.i&&def.club)acts.appendChild(h("button",{onclick:()=>{close();pickClubTile(p.i,c,k=>{E.placeClub(g,p.i,c,k);render();});}},E.clubValid(g,c)?`Přesunout klub (nyní ${T[g.clubs[c]].n})`:"Umístit klub"));
       if(owner!=null&&def.club&&E.clubValid(g,c))acts.appendChild(h("span",{class:"tag"},"klub na políčku "+T[g.clubs[c]].n));
-      else if(owner==null&&c==="mafia")acts.appendChild(h("span",{class:"err"},"Najmout si ji lze jen na Sicílii na začátku tahu."));
+      else if(owner==null&&c==="mafia")acts.appendChild(h("span",{class:"err"},"Zapůjčit si ji lze na začátku tahu, když stojíte v bance."));
       b.appendChild(h("div",{class:"item"},h("img",{class:"spec",src:`${SPECIMG[c]}.jpg`,alt:`Karta ${def.name}`,loading:"lazy"}),h("b",null,def.name),h("div",{class:"tags"},h("span",{class:"tag"+(owner!=null?" red":"")},owner!=null?"vlastní "+g.players[owner].name:"volná"),h("span",{class:"tag"},fmt(def.price))),h("p",{class:"note"},def.desc),acts));});
   });
 }
@@ -1436,6 +1447,7 @@ function openMenu(){
       h("button",{class:"btn soft",onclick:()=>{fast=!fast;close();renderPanel();toast(fast?"Tahy počítače jsou zrychlené.":"Normální rychlost.");}},fast?"Normální rychlost počítače":"Zrychlit tahy počítače"),
       ON?h("button",{class:"btn red",onclick:()=>{close();confirmBox("Opustit online hru? Na vašem místě bude zatím hrát počítač; vrátit se můžete tlačítkem „Pokračovat v online hře“.","Opustit",()=>{quitOnline();showSetup();});}},"Opustit online hru")
         :h("button",{class:"btn red",onclick:()=>{close();confirmBox("Ukončit rozehranou hru a začít novou?","Nová hra",()=>{clearSave();showSetup();});}},"Nová hra"));
+    b.append(h("p",{class:"note"},"Verze hry "+ITALIA_VERZE));
     if(ON)b.append(h("p",{class:"note"},`Online hra ${ON.code} · ${ON.host?"jste zakladatel – vaše zařízení řídí hru":"připojeno k zakladateli"}`));
     if(g&&(g.targetCash||g.targetTiles))b.append(h("p",{class:"note"},"Cíl hry: "+(g.targetCash?`hotovost ${fmt(g.targetCash)}`:`${g.targetTiles} políček`)+", nebo zůstat poslední ve hře."));
   });
@@ -1454,7 +1466,7 @@ function openRules(){sheet("Pravidla",b=>b.appendChild(h("div",{class:"rules",ht
 <li>Kdo vlastní všechny komodity regionu, region se podbarví jeho barvou a vybírá mýto 2 000 € za vjezd a 2 000 € za zastavení.</li>
 <li>Zastavení na cizím letišti či v přístavu na pevnině znamená další tah povinně na ostrov. Ostrov se musí objet aspoň jednou, dvakrát ne.</li>
 <li>Frecciarossa: nástup jen v bance za 24 000 €. Po dvou stanicích je u Bologni křižovatka – hráč si vybere, do které ze dvou dalších bank pojede. Pak se musí jet po zemi.</li>
-<li>Speciální karty kupujete na začátku tahu. Mafia jen na Sicílii.</li>
+<li>Speciální karty kupujete na začátku tahu. <b>Mafii</b> si zapůjčíte v kterékoli bance; vrací se, až se vrátíte do téže banky. Koho s ní na trase potkáte, vypadá ze hry.</li>
 <li><b>Sbírka komodit:</b> kdo vlastní 5–9 komodit jednoho druhu, má u nich dvojnásobnou výplatu v bance i poplatek Stop; od 10 komodit trojnásobnou.</li>
 <li><b>Labužník / Someliér / Průvodce</b> zdvojnásobí Stop i výplatu v bance za pochutiny / vína / pamětihodnosti – a to navíc k násobku za sbírku (např. 10 vín + Someliér = ×6).</li>
 <li><b>Labužnický / Someliérský / Cestovatelský klub</b> umístíte na své políčko daného druhu. V příslušné bance dostáváte navíc 15 000 €. Kdo na políčku klubu zastaví, dostane od vás 1 000 € za každou svou komoditu daného druhu. Platí se i do mínusu – dluh pak majitel vyrovná prodejem majetku na začátku svého tahu. Klub zaniká, když políčko prodáte nebo vyměníte – pak ho lze umístit znovu.</li>
@@ -1563,6 +1575,7 @@ function showSetup(){
       card.append(h("p",{class:"note"},"Hráči nastavení výše jako „Člověk“ (kromě prvního) se připojí ze svých telefonů pomocí kódu. Neobsazená místa převezme počítač, který hraje na zařízení zakladatele."));
     }
     card.append(h("button",{class:"btn soft",onclick:openRules},"Pravidla"));
+    card.append(h("p",{class:"note",style:"text-align:center;margin-top:-4px"},"Verze "+ITALIA_VERZE));
   };
   draw();
   S.append(heroEl(),card);
@@ -1876,6 +1889,7 @@ async function hostStart(){
   startGame(ng);commit();
 }
 
+const ITALIA_VERZE="1. 11. 2026 18:38";
 $("menuBtn").onclick=openMenu;
 function start(data){
   drawMap();
