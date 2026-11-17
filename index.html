@@ -1079,15 +1079,35 @@ const svg=$("map");
 let vb={x:0,y:0,w:1850,h:2170};
 // výřez mapy: drží poměr stran okna a nikdy nevyjede za okraj mapy (1850 × 2170)
 const MW=1850,MH=2170;
+// okraje mapy zakryté ovládacími prvky (v px): nahoře poslední hod / kroky, dole panel hráče
+function occl(r){
+  let top=0,bot=0;
+  for(const id of ["lastroll","steps"]){const el=document.getElementById(id);
+    if(!el||!el.offsetParent)continue;const q=el.getBoundingClientRect();
+    if(q.height>0&&q.top<r.top+r.height/2)top=Math.max(top,q.bottom-r.top+6);}
+  const pn=document.getElementById("panel");
+  if(pn&&pn.offsetParent){const q=pn.getBoundingClientRect();
+    const ov=Math.min(q.right,r.right)-Math.max(q.left,r.left);
+    if(ov>r.width*.5&&q.top<r.bottom&&q.top>r.top+r.height*.25)bot=Math.max(bot,r.bottom-q.top+6);}
+  return {top:Math.min(top,r.height*.3),bot:Math.min(bot,r.height*.55)};
+}
 function setVB(){
-  const r=svg.getBoundingClientRect(),asp=r.width>0&&r.height>0?r.height/r.width:MH/MW;
-  const wFit=Math.max(MW,MH/asp);              // nejvíc oddálená mapa = celá Itálie v okně
-  vb.w=Math.min(wFit,Math.max(260,vb.w||wFit));vb.h=vb.w*asp;
+  const r=svg.getBoundingClientRect(),ok=r.width>0&&r.height>0,asp=ok?r.height/r.width:MH/MW;
+  const o=ok?occl(r):{top:0,bot:0},visH=ok?r.height-o.top-Math.min(o.bot,r.height*.35):1;  // vysoký panel nezmenší celou mapu víc než o třetinu
+  // nejvíc oddálená mapa = celá Itálie ve viditelné části okna (mezi horními prvky a panelem)
+  const wFit=ok?Math.max(MW,MH*r.width/visH):Math.max(MW,MH/asp);
+  if(!vb.w||vb.w>=lastFit-0.5)vb.w=wFit;              // mapa byla celá → zůstane celá i po změně panelu
+  vb.w=Math.min(wFit,Math.max(260,vb.w));vb.h=vb.w*asp;if(ok)lastFit=wFit;
+  const k=ok?vb.w/r.width:0,y0=-o.top*k,y1=MH+o.bot*k;   // mapa se dá posunout i pod zakryté okraje
   vb.x=vb.w>=MW?(MW-vb.w)/2:Math.min(MW-vb.w,Math.max(0,vb.x));
-  vb.y=vb.h>=MH?(MH-vb.h)/2:Math.min(MH-vb.h,Math.max(0,vb.y));
+  vb.y=!ok?(MH-vb.h)/2:vb.h>=y1-y0?MH/2-k*(o.top+r.height-Math.min(o.bot,r.height*.35))/2:Math.min(y1-vb.h,Math.max(y0,vb.y));
   svg.setAttribute("viewBox",`${vb.x.toFixed(1)} ${vb.y.toFixed(1)} ${vb.w.toFixed(1)} ${vb.h.toFixed(1)}`);
 }
+let lastFit=1e9;
 window.addEventListener("resize",()=>setVB());
+// panel hráče a ukazatele nahoře mění velikost → přepočítat výřez
+if(window.ResizeObserver){let tm=0;const ro=new ResizeObserver(()=>{clearTimeout(tm);tm=setTimeout(()=>setVB(),60);});
+  ["panel","lastroll","steps"].forEach(id=>{const e=document.getElementById(id);if(e)ro.observe(e);});}
 const tileEl=[],regionEl={};
 const SYMS=`<symbol id="sym-R" viewBox="-12 -12 24 24"><path d="M-1.9,-11.5 H1.9 V-5.6 C1.9,-3.6 4.8,-3 4.8,0.2 V10 Q4.8,11.4 3.4,11.4 H-3.4 Q-4.8,11.4 -4.8,10 V0.2 C-4.8,-3 -1.9,-3.6 -1.9,-5.6 Z" class="sy-fill"/><rect x="-3.4" y="1.8" width="6.8" height="5" rx="0.6" class="sy-cut2"/><rect x="-2.3" y="-10" width="4.6" height="1.2" class="sy-cut2"/></symbol>
 <symbol id="sym-G" viewBox="-12 -12 24 24"><path d="M-10,-6 Q0,-11 10,-6 L0,11 Z" class="sy-fill"/><path d="M-8.2,-3.4 Q0,-7.4 8.2,-3.4" class="sy-cut"/><circle cx="-2.8" cy="-0.6" r="1.7" class="sy-cut2"/><circle cx="2.8" cy="0.4" r="1.7" class="sy-cut2"/><circle cx="0" cy="5" r="1.5" class="sy-cut2"/></symbol>
@@ -1208,10 +1228,13 @@ function zoom(f,cx,cy){const r=svg.getBoundingClientRect();if(cx==null){cx=r.lef
 function fitMap(){vb={x:0,y:0,w:1e9,h:1e9};setVB();}
 function focus(ids,minW){const xs=ids.map(i=>T[i].x),ys=ids.map(i=>T[i].y);
   const x0=Math.min(...xs)-160,x1=Math.max(...xs)+160,y0=Math.min(...ys)-160,y1=Math.max(...ys)+160;
-  const r=svg.getBoundingClientRect(),asp=r.height/Math.max(1,r.width);
-  let w=Math.max(x1-x0,(y1-y0)/asp,minW||600);w=Math.min(w,1850);vb={x:(x0+x1)/2-w/2,y:(y0+y1)/2-w*asp/2,w,h:w*asp};setVB();}
+  const r=svg.getBoundingClientRect(),o=occl(r),vis=Math.max(r.height*.4,r.height-o.top-o.bot),asp=r.height/Math.max(1,r.width);
+  let w=Math.max(x1-x0,(y1-y0)*r.width/Math.max(1,vis),minW||600);w=Math.min(w,1850);const k=w/Math.max(1,r.width);
+  vb={x:(x0+x1)/2-w/2,y:(y0+y1)/2-k*(o.top+vis/2),w,h:w*asp};setVB();}
 function follow(i){const t=T[i];if(vb.w>1500)return;const mx=vb.w*.18,my=vb.h*.18;
-  if(t.x<vb.x+mx||t.x>vb.x+vb.w-mx||t.y<vb.y+my||t.y>vb.y+vb.h-my){vb.x=t.x-vb.w/2;vb.y=t.y-vb.h/2;setVB();}}
+  const r=svg.getBoundingClientRect(),o=occl(r),k=vb.w/Math.max(1,r.width),top=vb.y+o.top*k,bot=vb.y+vb.h-o.bot*k;
+  const m=Math.min(my,(bot-top)*.2);
+  if(t.x<vb.x+mx||t.x>vb.x+vb.w-mx||t.y<top+m||t.y>bot-m){vb.x=t.x-vb.w/2;vb.y=t.y-(o.top*k+(bot-top)/2);setVB();}}
 (function(){
   const pts=new Map();let start=null;
   svg.addEventListener("wheel",e=>{e.preventDefault();zoom(e.deltaY>0?1.15:1/1.15,e.clientX,e.clientY);},{passive:false});
