@@ -453,7 +453,7 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
     lklub: { name: 'Labužnický klub', price: 50000, club: 'G', desc: 'Umístíte na svou pochutinu. V bance Milano dostanete navíc 15 000 €. Kdo na políčku klubu zastaví, tomu vyplatíte 1 000 € za každou jeho pochutinu.' },
     sklub: { name: 'Someliérský klub', price: 50000, club: 'R', desc: 'Umístíte na své víno. V bance Ancona dostanete navíc 15 000 €. Kdo na políčku klubu zastaví, tomu vyplatíte 1 000 € za každé jeho víno.' },
     cklub: { name: 'Cestovatelský klub', price: 50000, club: 'W', desc: 'Umístíte na svou pamětihodnost. V bance Roma dostanete navíc 15 000 €. Kdo na políčku klubu zastaví, tomu vyplatíte 1 000 € za každou jeho pamětihodnost.' },
-    mafia: { name: 'Mafia', price: 300000, rent: true, desc: 'Zapůjčíte si ji v kterékoli bance na začátku tahu a vrací se, až se vrátíte do téže banky. Koho na trase potkáte (i v protisměru), vypadá ze hry.' },
+    mafia: { name: 'Mafia', price: 300000, rent: true, desc: 'Zapůjčíte si ji v kterékoli bance na začátku tahu a vrací se, jakmile přijedete do kterékoli banky. Koho na trase potkáte (i v protisměru), vypadá ze hry.' },
   };
   const KIND_CARD = { W: 'pruvodce', R: 'somelier', G: 'labuznik' };
   const DICE_FEE = { 1: 5000, 2: 0, 3: 10000 };
@@ -633,7 +633,7 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
       if (r.base) pay(g, -1, p.i, r.base, `výplata v bance ${t.n}` + (r.mult ? ' (vč. násobků)' : ''));
       r.clubs.forEach(c => pay(g, -1, p.i, CLUB_BONUS, CARDS[c].name));
       if (!r.sum) log(g, `${p.name} je v bance ${t.n}, zatím bez výplaty.`);
-      if (p.mafia && p.mafiaBank === i) { p.mafia = false; p.mafiaBank = null; delete g.cards.mafia; log(g, `${p.name} se vrátil do banky ${t.n} – Mafia se vrací.`); }
+      if (p.mafia) { p.mafia = false; p.mafiaBank = null; delete g.cards.mafia; log(g, `${p.name} přijel do banky ${t.n} – ${CARDS.mafia.name} se vrací.`); }
     } else if ((t.t === 'ship' || t.t === 'plane') && !p.train) {
       const c = t.t === 'ship' ? 'lodni' : 'aero', o = g.cards[c];
       if (o != null && o !== p.i && P(g, o).alive) pay(g, p.i, o, LINK_STOP, `zastavení na lince (${CARDS[c].name})`);
@@ -795,7 +795,7 @@ label.fl input{border:2px solid var(--paper-3);border-radius:8px;padding:9px;fon
     if (c === 'mafia' && (T[p.pos].t !== 'B' || g.phase !== 'turn')) return false;
     p.cash -= def.price; g.cards[c] = i;
     g.anim.push({ pay: true, from: i, to: -1, amt: def.price, why: def.name });
-    if (c === 'mafia') { p.mafia = true; p.mafiaBank = p.pos; log(g, `${p.name} si v bance ${T[p.pos].n} najímá Mafii za ${fmt(def.price)}! Vrací se po návratu do téže banky.`); }
+    if (c === 'mafia') { p.mafia = true; p.mafiaBank = p.pos; log(g, `${p.name} si v bance ${T[p.pos].n} najímá Mafii za ${fmt(def.price)}! Vrací se při příjezdu do kterékoli banky.`); }
     else log(g, `${p.name} kupuje kartu ${def.name} za ${fmt(def.price)}.`);
     if (def.club) placeClub(g, i, c, tile);
     return true;
@@ -1552,7 +1552,7 @@ function openRules(){sheet("Pravidla",b=>b.appendChild(h("div",{class:"rules",ht
 <li>Kdo vlastní všechny komodity regionu, region se podbarví jeho barvou a vybírá mýto 2 000 € za vjezd a 2 000 € za zastavení.</li>
 <li>Zastavení na cizím letišti či v přístavu na pevnině znamená další tah povinně na ostrov. Ostrov se musí objet aspoň jednou, dvakrát ne.</li>
 <li>Frecciarossa: nástup jen v bance za 24 000 €. Po dvou stanicích je u Bologni křižovatka – hráč si vybere, do které ze dvou dalších bank pojede. Pak se musí jet po zemi.</li>
-<li>Speciální karty kupujete na začátku tahu. <b>Mafii</b> si zapůjčíte v kterékoli bance; vrací se, až se vrátíte do téže banky. Koho s ní na trase potkáte, vypadá ze hry.</li>
+<li>Speciální karty kupujete na začátku tahu. <b>Mafii</b> si zapůjčíte v kterékoli bance; vrací se, jakmile přijedete do kterékoli banky. Koho s ní na trase potkáte, vypadá ze hry.</li>
 <li><b>Sbírka komodit:</b> kdo vlastní 5–9 komodit jednoho druhu, má u nich dvojnásobnou výplatu v bance i poplatek Stop. Od 10 komodit má trojnásobnou výplatu v bance a čtyřnásobný poplatek Stop.</li>
 <li><b>Labužník / Someliér / Průvodce</b> zdvojnásobí Stop i výplatu v bance za pochutiny / vína / pamětihodnosti – a to navíc k násobku za sbírku (např. 10 vín + Someliér = ×6).</li>
 <li><b>Labužnický / Someliérský / Cestovatelský klub</b> umístíte na své políčko daného druhu. V příslušné bance dostáváte navíc 15 000 €. Kdo na políčku klubu zastaví, dostane od vás 1 000 € za každou svou komoditu daného druhu. Platí se i do mínusu – dluh pak majitel vyrovná prodejem majetku na začátku svého tahu. Klub zaniká, když políčko prodáte nebo vyměníte – pak ho lze umístit znovu.</li>
